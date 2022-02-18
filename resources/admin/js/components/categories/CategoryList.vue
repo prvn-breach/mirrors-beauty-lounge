@@ -1,0 +1,146 @@
+<template>
+    <div id="content" class="flex">
+        <div class="page-container">
+            <div class="pt-3 pr-3 pb-5 pl-3">
+                <div class="mb-5">
+                    <h2 class="dv_page_heading">Category </h2>
+                    <div class="row dv_search_delete_action_common">
+                        <div class="col-md-5 col-sm-5 col-xs-5 col-5">
+                            <!-- <input type="text" class="form-control dv_common_search_for_all" name="" placeholder="Search"> -->
+                        </div>
+                        <div class="col-md-7 col-sm-7 col-xs-7 col-7">
+                            <router-link :to="{ name : 'addCategory'}" tag ="button" class="btn btn-default dv_filter_common">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            </router-link>
+                            <button type="button" @click="excelDownload" class="btn btn-default dv_export_common" data-toggle="tooltip" data-placement="top" title="Download CSV">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <pagination v-if="Object.keys(categories).length > 0" class="mt-2" :data="categories" @pagination-change-page="getCategoriesList"></pagination>
+                    <div class="table-responsive">
+                        <table class="table table-theme table-row v-middle">
+                            <thead>
+                                <tr>
+                                    <th class="text-muted sortable" style="width: 30%;"  @click="sorting(order('name'), 'name')">Category</th>
+                                    <th class="text-muted">Image</th>
+                                    <th class="text-muted" style="width: 5%;">Status</th>
+                                    <th class="text-muted" style="width: 5%;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="v-middle" v-for="(category,index) in categories.data" :key="index">
+                                    <td>
+                                        <strong>{{category.name}} </strong>
+                                    </td>
+                                    <td>
+                                        <img v-if="category.icon" :src="baseUrlImage+category.icon" alt="">
+                                        <img v-else :src="baseUrlImage+'images/default_admin.jpg'" alt="" width="50" height="50">
+                                    </td>
+                                    <td>
+                                        <div class="dv_active_inactive_sub_cate_list">
+                                            <label class="ui-switch ui-switch-md info m-t-xs"><input :checked="category.status=='A'" type="checkbox" @change="getChangeStatus($event,category)"> <i></i></label>
+                                        </div>  
+                                    </td>
+                                    <td>
+                                        <router-link :to="{ name : 'addCategory', params : { category_id:category.id}}" >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="dv_sub_category_edit"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                                        </router-link>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <pagination v-if="Object.keys(categories).length > 0" :data="categories" @pagination-change-page="getCategoriesList"></pagination>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+<script type="text/javascript">
+import Vue from 'vue'
+import { mapState } from 'vuex'
+import { GET_CATEGORIES_ACTION, UPDATE_CHANGE_STATUS_CATEGORY_ACTION, EXCEL_DOWNLOAD_CATEGORIES_ACTION } from '@admin/store/categories/actions'
+export default {
+    components: { },
+    data() {
+        return {
+            baseUrl:Vue.config.baseUrl,
+            baseUrlImage:Vue.config.baseUrlImage,
+            filters: {
+                orderBy: 'asc',
+                sortBy: 'id'
+            }
+        }
+    },
+    computed:{
+        ...mapState({
+            getError: state => state.getCategory.getError,
+            categories: state => state.getCategory.getCategories,
+            excelLink: state => state.getCategory.excelLink
+        }),
+    },
+    methods: {
+        getChangeStatus:function(event,category){
+            let _this = this;
+            let data = {
+                id:category.id,
+            };
+            if(event.target.checked == true){
+                data.status = 'A'; 
+            }else{
+                data.status = 'I'; 
+            }
+            _this.$store.dispatch('getCategory/' + UPDATE_CHANGE_STATUS_CATEGORY_ACTION,data)
+        },
+        getCategoriesList:function(page=1){
+            let query = [];
+            query['params'] = {
+                sortBy: this.filters.sortBy,
+                orderBy: this.filters.orderBy,
+                page: page,
+                per_page: 50
+            }
+            if (this.$admin['role_id'] == 2) {
+                query['params'] = { created_by:this.$admin['id']  };
+            }
+            this.$store.dispatch('getCategory/' + GET_CATEGORIES_ACTION, query);
+        },
+        excelDownload: function() {
+            let query = [];
+            let params = {
+                response_type: 'xlsx'
+            };
+            query['params'] = this.deleteEmptyKeys(params);
+            if (this.$admin['role_id'] == 2) {
+                query['params']['created_by'] = this.$admin['id'];
+            }
+            this.$store.dispatch('getCategory/' + EXCEL_DOWNLOAD_CATEGORIES_ACTION, query).then(() => {
+                const link = document.createElement("a");
+                link.href = this.excelLink;
+                link.setAttribute("download", "categories.xlsx");
+                document.body.appendChild(link);
+                link.click();
+            });
+        },
+        sorting(orderBy, sortBy) {
+            this.filters.orderBy = orderBy;
+            this.filters.sortBy = sortBy;
+            this.getCategoriesList();
+        },
+        order(sortBy) {
+            if ((this.filters.sortBy == sortBy) && (this.filters.orderBy == 'desc')) {
+                return 'asc';
+            } else if ((this.filters.sortBy == sortBy) && (this.filters.orderBy == 'asc')) {
+                return 'desc'
+            } else {
+                return 'desc';
+            }
+        }
+    },
+    created() {},
+    mounted(){
+        this.getCategoriesList();
+    }
+}
+</script>
